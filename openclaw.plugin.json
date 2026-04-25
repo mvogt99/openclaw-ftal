@@ -1,0 +1,15 @@
+{
+  "id": "openclaw-ftal",
+  "name": "FTAL Quality Scoring",
+  "description": "Multi-dimensional reply scoring (Faithfulness / Truthfulness / Accuracy / Latency) with optional teaching-context injection on retries.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "rubric": { "type": "string" },
+      "gapThreshold": { "type": "number" },
+      "retryEnabled": { "type": "boolean" },
+      "retryMaxIterations": { "type": "number" }
+    }
+  }
+}
