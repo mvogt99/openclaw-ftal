@@ -4,6 +4,7 @@ import { resolveRubric } from "./src/rubrics/index.js";
 import { HeuristicScorer } from "./src/scorer/heuristic-scorer.js";
 import { attachTeachingContext } from "./src/hooks/before-prompt-build.js";
 import { createAgentEndHandler } from "./src/hooks/agent-end.js";
+import { createBeforeAgentFinalizeHandler } from "./src/hooks/before-agent-finalize.js";
 import { FtalStore } from "./src/store.js";
 import type { ScoringEvent, ScoringRecord } from "./src/types.js";
 
@@ -27,20 +28,22 @@ export default definePluginEntry({
       sessionKey: string,
       runId: string,
     ): void {
-      // Write to the in-memory store — inter-plugin consumers call FtalStore.getLatest(sessionKey).
       const record: ScoringRecord = { ...event, sessionKey, runId, scoredAt: Date.now() };
       FtalStore.set(record);
-      // Secondary structured log line for observability (grep/tail for "ftal:scoring_event").
       api.logger.info(`ftal:scoring_event ${JSON.stringify(record)}`);
     }
 
-    const handleAgentEnd = createAgentEndHandler(
-      rubric,
-      emitScoringEvent,
-      config.retryEnabled,
-    );
-
     api.on("before_prompt_build", attachTeachingContext);
-    api.on("agent_end", handleAgentEnd);
+    api.on("agent_end", createAgentEndHandler(rubric, emitScoringEvent, config.retryEnabled));
+
+    // useFinalize=true: scoring and retry gating happen in before_agent_finalize (blocks delivery).
+    // Requires OpenClaw >= f3accc753c and allowConversationAccess: true in plugin config.
+    // Falls back gracefully: if the hook isn't available the plugin continues working via agent_end.
+    if (config.useFinalize) {
+      api.on(
+        "before_agent_finalize",
+        createBeforeAgentFinalizeHandler(rubric, config.maxRevisions, config.retryEnabled),
+      );
+    }
   },
 });

@@ -1,6 +1,6 @@
 {
   "name": "openclaw-ftal",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Multi-dimensional reply quality scoring plugin for OpenClaw agents (Faithfulness / Truthfulness / Accuracy / Latency)",
   "type": "module",
   "exports": {

@@ -9,7 +9,13 @@
       "rubric": { "type": "string" },
       "gapThreshold": { "type": "number" },
       "retryEnabled": { "type": "boolean" },
-      "retryMaxIterations": { "type": "number" }
+      "retryMaxIterations": { "type": "number" },
+      "useFinalize": { "type": "boolean" },
+      "maxRevisions": { "type": "number" }
     }
+  },
+  "hooks": {
+    "requiresConversationAccess": ["before_agent_finalize"],
+    "notes": "before_agent_finalize requires OpenClaw >= f3accc753c (#71765) and allowConversationAccess: true in plugin config. v1 behavior (agent_end + before_prompt_build) works on any OpenClaw >= 2026.4.0."
   }
 }
