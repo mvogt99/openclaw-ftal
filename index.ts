@@ -4,7 +4,13 @@ import { resolveRubric } from "./src/rubrics/index.js";
 import { HeuristicScorer } from "./src/scorer/heuristic-scorer.js";
 import { attachTeachingContext } from "./src/hooks/before-prompt-build.js";
 import { createAgentEndHandler } from "./src/hooks/agent-end.js";
-import type { ScoringEvent } from "./src/types.js";
+import { FtalStore } from "./src/store.js";
+import type { ScoringEvent, ScoringRecord } from "./src/types.js";
+
+// Re-export store and types for inter-plugin consumption.
+// P2 and other plugins import from "openclaw-ftal" or "openclaw-ftal/store".
+export { FtalStore } from "./src/store.js";
+export type { ScoringRecord, ScoringEvent, ConfidenceState } from "./src/types.js";
 
 export default definePluginEntry({
   id: "openclaw-ftal",
@@ -16,11 +22,16 @@ export default definePluginEntry({
     const scorer = new HeuristicScorer();
     const rubric = resolveRubric(config.rubric, scorer);
 
-    function emitScoringEvent(event: ScoringEvent): void {
-      // v1: no cross-plugin event bus on the SDK. Emit as a structured log line.
-      // Subscribers parse lines prefixed with "ftal:scoring_event".
-      // v2 will use a proper event surface if one lands on the Plugin SDK.
-      api.logger.info(`ftal:scoring_event ${JSON.stringify(event)}`);
+    function emitScoringEvent(
+      event: ScoringEvent,
+      sessionKey: string,
+      runId: string,
+    ): void {
+      // Write to the in-memory store — inter-plugin consumers call FtalStore.getLatest(sessionKey).
+      const record: ScoringRecord = { ...event, sessionKey, runId, scoredAt: Date.now() };
+      FtalStore.set(record);
+      // Secondary structured log line for observability (grep/tail for "ftal:scoring_event").
+      api.logger.info(`ftal:scoring_event ${JSON.stringify(record)}`);
     }
 
     const handleAgentEnd = createAgentEndHandler(

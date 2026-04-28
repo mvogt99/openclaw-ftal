@@ -39,3 +39,11 @@ export interface TeachingContext {
   dimensions: DimensionScores;
   suggestedContext: string;
 }
+
+// ScoringRecord is the stored form of a ScoringEvent — adds identity and timestamp.
+// Exported from openclaw-ftal/store for inter-plugin consumption (e.g. P2 accountability).
+export interface ScoringRecord extends ScoringEvent {
+  sessionKey: string; // required in stored form (optional in ScoringEvent)
+  runId: string;      // required in stored form
+  scoredAt: number;   // Date.now() at time of scoring
+}

@@ -73,8 +73,7 @@ describe("computeGap", () => {
   });
 
   it("computes weighted gap correctly", () => {
-    // weighted avg = (80*40 + 80*40 + 80*10 + 80*10) / 100 = 80
-    // gap = 100 - 80 = 20
+    // weighted avg = (80*40 + 80*40 + 80*10 + 80*10) / 100 = 80, gap = 20
     const gap = computeGap({ F: 80, T: 80, A: 80, L: 80 }, ftalRubric);
     expect(gap).toBeCloseTo(20);
   });
@@ -112,11 +111,12 @@ describe("createAgentEndHandler", () => {
     );
 
     expect(emit).toHaveBeenCalledOnce();
-    const event = emit.mock.calls[0]![0];
+    const [event, sessionKey, runId] = emit.mock.calls[0]!;
     expect(event.rubric).toBe("ftal-v1");
     expect(event.passed).toBe(true);
     expect(event.confidence).toBe("provisional");
-    expect(event.sessionKey).toBe("s1");
+    expect(sessionKey).toBe("s1");
+    expect(runId).toBe("r1");
   });
 
   it("does not emit when success is false", async () => {
@@ -126,7 +126,7 @@ describe("createAgentEndHandler", () => {
 
     await handler(
       { messages: [{ role: "assistant", content: "answer" }], success: false },
-      { sessionKey: "s1" },
+      { sessionKey: "s1", runId: "r1" },
     );
 
     expect(emit).not.toHaveBeenCalled();
@@ -139,7 +139,20 @@ describe("createAgentEndHandler", () => {
 
     await handler(
       { messages: [{ role: "user", content: "question" }], success: true },
-      { sessionKey: "s1" },
+      { sessionKey: "s1", runId: "r1" },
+    );
+
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("does not emit when sessionKey or runId is missing", async () => {
+    const emit = vi.fn();
+    const rubric = makeRubric({ F: 90, T: 90, A: 90, L: 90 });
+    const handler = createAgentEndHandler(rubric, emit, false);
+
+    await handler(
+      { messages: [{ role: "assistant", content: "answer" }], success: true },
+      { sessionKey: "s1" }, // runId missing
     );
 
     expect(emit).not.toHaveBeenCalled();
@@ -152,10 +165,10 @@ describe("createAgentEndHandler", () => {
 
     await handler(
       { messages: [{ role: "assistant", content: "weak answer" }], success: true },
-      { sessionKey: "s1" },
+      { sessionKey: "s1", runId: "r1" },
     );
 
-    const event = emit.mock.calls[0]![0];
+    const [event] = emit.mock.calls[0]!;
     expect(event.passed).toBe(false);
     expect(event.gap).toBeGreaterThanOrEqual(30);
   });

@@ -13,7 +13,9 @@ type AgentEndContext = {
   runId?: string;
 };
 
-type ScoringEventEmitter = (event: ScoringEvent) => void;
+// sessionKey and runId are passed explicitly so the emitter can write a ScoringRecord
+// with both fields required (the store enforces non-optional identity).
+type ScoringEventEmitter = (event: ScoringEvent, sessionKey: string, runId: string) => void;
 
 /**
  * Extract the text of the last assistant message from an unknown[] message array.
@@ -65,11 +67,12 @@ export function createAgentEndHandler(
     const replyText = extractLastAssistantText(event.messages);
     if (!replyText) return;
 
-    const agentCtx = {
-      sessionKey: ctx.sessionKey,
-      runId: ctx.runId,
-    };
+    // Skip scoring if we can't identify the turn — store requires both keys.
+    const sessionKey = ctx.sessionKey;
+    const runId = ctx.runId;
+    if (!sessionKey || !runId) return;
 
+    const agentCtx = { sessionKey, runId };
     const dimensions = await rubric.score(replyText, agentCtx);
     const gap = computeGap(dimensions, rubric);
     const passed = gap < rubric.gapThreshold;
@@ -80,15 +83,15 @@ export function createAgentEndHandler(
       gap,
       passed,
       confidence: "provisional",
-      sessionKey: ctx.sessionKey,
-      runId: ctx.runId,
+      sessionKey,
+      runId,
     };
 
-    emitScoringEvent(scoringEvent);
+    emitScoringEvent(scoringEvent, sessionKey, runId);
 
-    if (retryEnabled && !passed && ctx.sessionKey) {
+    if (retryEnabled && !passed) {
       const teaching: TeachingContext = {
-        sessionKey: ctx.sessionKey,
+        sessionKey,
         rubric: rubric.id,
         gap,
         dimensions,
