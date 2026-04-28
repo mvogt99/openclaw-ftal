@@ -12,7 +12,7 @@ import type { Scorer } from "../scorer/types.js";
  * failure mode in coding tasks. A and L act as tiebreakers.
  */
 export const ftalV1Rubric: Rubric = {
-  id: "ftal-v1",
+  id: "coding-ftal-v1",
   gapThreshold: 30,
   dimensions: [
     { key: "F", weight: 40 },

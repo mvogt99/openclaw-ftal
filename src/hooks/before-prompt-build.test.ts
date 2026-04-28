@@ -8,7 +8,7 @@ import type { TeachingContext } from "../types.js";
 
 const sampleTeaching: TeachingContext = {
   sessionKey: "session-1",
-  rubric: "ftal-v1",
+  rubric: "coding-ftal-v1",
   gap: 45,
   dimensions: { F: 55, T: 60, A: 70, L: 100 },
   suggestedContext: "Improve faithfulness.",
@@ -35,7 +35,7 @@ describe("attachTeachingContext", () => {
     const result = attachTeachingContext({}, { sessionKey: "session-1" });
     expect(result).toBeDefined();
     expect(result!.prependContext).toContain("gap=45");
-    expect(result!.prependContext).toContain("ftal-v1");
+    expect(result!.prependContext).toContain("coding-ftal-v1");
     expect(result!.prependContext).toContain("F: 55");
   });
 

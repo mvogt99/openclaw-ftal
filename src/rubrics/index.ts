@@ -4,8 +4,10 @@ import { createFtalV1Rubric } from "./ftal-v1.js";
 import { createConciseV1Rubric } from "./concise-v1.js";
 
 const REGISTRY = new Map<string, (scorer: Scorer) => Rubric>([
-  ["ftal-v1", createFtalV1Rubric],
+  ["coding-ftal-v1", createFtalV1Rubric],
   ["concise-v1", createConciseV1Rubric],
+  // backward-compat alias — removed in v1.0
+  ["ftal-v1", createFtalV1Rubric],
 ]);
 
 export function resolveRubric(id: string, scorer: Scorer): Rubric {

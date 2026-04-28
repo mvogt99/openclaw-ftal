@@ -50,7 +50,7 @@ describe("extractLastAssistantText", () => {
 // --- computeGap ---
 
 const ftalRubric: Rubric = {
-  id: "ftal-v1",
+  id: "coding-ftal-v1",
   gapThreshold: 30,
   dimensions: [
     { key: "F", weight: 40 },
@@ -112,7 +112,7 @@ describe("createAgentEndHandler", () => {
 
     expect(emit).toHaveBeenCalledOnce();
     const [event, sessionKey, runId] = emit.mock.calls[0]!;
-    expect(event.rubric).toBe("ftal-v1");
+    expect(event.rubric).toBe("coding-ftal-v1");
     expect(event.passed).toBe(true);
     expect(event.confidence).toBe("provisional");
     expect(sessionKey).toBe("s1");

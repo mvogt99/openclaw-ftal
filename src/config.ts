@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const ftalConfigSchema = z.object({
-  rubric: z.string().default("ftal-v1"),
+  rubric: z.string().default("coding-ftal-v1"),
   gapThreshold: z.number().min(0).max(100).optional(),
   retryEnabled: z.boolean().default(false),
   retryMaxIterations: z.number().min(1).max(10).default(3),

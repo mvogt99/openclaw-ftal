@@ -6,6 +6,18 @@ function recordKey(sessionKey: string, runId: string): string {
   return `${sessionKey}:${runId}`;
 }
 
+/**
+ * SAME-PROCESS / NON-DURABLE / BEST-EFFORT.
+ *
+ * FtalStore is an in-memory singleton. It does not survive process restart,
+ * is not shared across workers, and makes no persistence guarantees.
+ * Records are evicted after 1 hour (TTL) or when deleteByRun() is called
+ * at run completion. Downstream plugins should treat missing records as
+ * "no score available" and degrade gracefully.
+ *
+ * Records contain only compact score metadata (rubric id, dimension scores,
+ * gap, confidence). Raw reply text is never stored here.
+ */
 class FtalStoreImpl {
   private readonly records = new Map<string, ScoringRecord>();
 
@@ -51,6 +63,12 @@ class FtalStoreImpl {
     return true;
   }
 
+  // Call from agent_end to release a run's record immediately rather than waiting for TTL.
+  // Plugins that hook agent_end can call this after reading the score.
+  deleteByRun(sessionKey: string, runId: string): void {
+    this.records.delete(recordKey(sessionKey, runId));
+  }
+
   private evict(): void {
     const cutoff = Date.now() - TTL_MS;
     for (const [key, record] of this.records.entries()) {
@@ -58,7 +76,7 @@ class FtalStoreImpl {
     }
   }
 
-  // Test helper — avoids needing to wait for TTL in tests.
+  // Test helpers.
   _clear(): void {
     this.records.clear();
   }

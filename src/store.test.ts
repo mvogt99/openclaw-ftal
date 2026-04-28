@@ -6,7 +6,7 @@ function makeRecord(
   overrides: Partial<ScoringRecord> = {},
 ): ScoringRecord {
   return {
-    rubric: "ftal-v1",
+    rubric: "coding-ftal-v1",
     dimensions: { F: 80, T: 75, A: 90, L: 95 },
     gap: 20,
     passed: true,
