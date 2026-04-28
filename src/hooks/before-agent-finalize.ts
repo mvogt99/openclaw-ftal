@@ -70,24 +70,38 @@ export function createBeforeAgentFinalizeHandler(
 
     revisionCounts.set(runId, count);
 
+    const dimLines = Object.entries(dimensions)
+      .map(([k, v]) => `  ${k}: ${v.toFixed(0)}/100`)
+      .join("\n");
+
+    const weakDims = Object.entries(dimensions)
+      .filter(([, v]) => v < 70)
+      .map(([k]) => k)
+      .join(", ");
+
+    // reason is what the revising harness sees immediately (Stop hook / Codex relay).
+    // before_prompt_build may not fire between the revision block and the continued pass,
+    // so the actionable teaching must live here — not only in the queued context below.
+    const reason = [
+      `[FTAL revision ${count}/${maxRevisions} — rubric: ${rubric.id}, gap=${gap.toFixed(0)}, threshold=${rubric.gapThreshold}]`,
+      `Dimension scores:\n${dimLines}`,
+      weakDims
+        ? `Weak dimensions: ${weakDims}. Please revise your reply to directly address these.`
+        : "All dimensions scored above threshold — recheck faithfulness and factual accuracy.",
+    ].join("\n");
+
+    // Also queue teaching for the next OpenClaw-managed turn (before_prompt_build path).
+    // Belt-and-suspenders: fires when the host manages the retry itself.
     const teaching: TeachingContext = {
       sessionKey,
       rubric: rubric.id,
       gap,
       dimensions,
-      suggestedContext: `Prior reply failed FTAL scoring (gap=${gap.toFixed(0)}, revision ${count}/${maxRevisions}). Focus on improving weak dimensions.`,
+      suggestedContext: reason,
     };
     storePendingTeaching(teaching);
 
-    const weakDims = Object.entries(dimensions)
-      .filter(([, v]) => v < 70)
-      .map(([k, v]) => `${k}=${v.toFixed(0)}`)
-      .join(", ");
-
-    return {
-      action: "revise",
-      reason: `FTAL gap=${gap.toFixed(0)} (threshold ${rubric.gapThreshold}), revision ${count}/${maxRevisions}. Weak: ${weakDims || "none"}`,
-    };
+    return { action: "revise", reason };
   };
 }
 
