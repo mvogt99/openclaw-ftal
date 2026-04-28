@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { extractLastAssistantText, computeGap, createAgentEndHandler } from "./agent-end.js";
+import { extractLastAssistantText, computeGap, computeGatingGap, createAgentEndHandler } from "./agent-end.js";
 import type { Rubric } from "../types.js";
 
 // --- extractLastAssistantText ---
@@ -82,6 +82,33 @@ describe("computeGap", () => {
     const gap = computeGap({ F: 100, T: 100 }, ftalRubric);
     // weighted = (100*40 + 100*40 + 0*10 + 0*10) / 100 = 80, gap = 20
     expect(gap).toBeCloseTo(20);
+  });
+});
+
+// --- computeGatingGap ---
+
+describe("computeGatingGap", () => {
+  it("excludes advisory dimensions from gap calculation", () => {
+    const rubricWithAdvisory: Rubric = {
+      id: "test",
+      gapThreshold: 30,
+      dimensions: [
+        { key: "F", weight: 40 },
+        { key: "T", weight: 40 },
+        { key: "L", weight: 10, advisory: true },
+      ],
+      async score() { return {}; },
+    };
+    // F=80, T=80 → weighted avg over non-advisory = (80*40 + 80*40) / 80 = 80, gap = 20
+    // L=0 is advisory and must be excluded
+    const gap = computeGatingGap({ F: 80, T: 80, L: 0 }, rubricWithAdvisory);
+    expect(gap).toBeCloseTo(20);
+  });
+
+  it("matches computeGap when no dimensions are advisory", () => {
+    expect(computeGatingGap({ F: 80, T: 80, A: 80, L: 80 }, ftalRubric)).toBeCloseTo(
+      computeGap({ F: 80, T: 80, A: 80, L: 80 }, ftalRubric),
+    );
   });
 });
 

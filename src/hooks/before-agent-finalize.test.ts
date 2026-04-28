@@ -21,10 +21,10 @@ function makeRubric(scores: Record<string, number>, threshold = 30): Rubric {
     id: "coding-ftal-v1",
     gapThreshold: threshold,
     dimensions: [
-      { key: "F", weight: 40 },
-      { key: "T", weight: 40 },
-      { key: "A", weight: 10 },
-      { key: "L", weight: 10 },
+      { key: "F", weight: 40, failureHint: "Ground unsupported claims." },
+      { key: "T", weight: 40, failureHint: "Verify guessed API names." },
+      { key: "A", weight: 10, failureHint: "Complete the implementation." },
+      { key: "L", weight: 10, advisory: true },
     ],
     async score() {
       return scores;
@@ -113,6 +113,50 @@ describe("createBeforeAgentFinalizeHandler", () => {
     const event = { sessionId: "sess-1", stopHookActive: false, lastAssistantMessage: "hi" };
     const result = await handler(event);
     expect(result?.action).toBe("continue");
+  });
+
+  it("returns continue when only advisory dimension fails (L low, F/T/A pass)", async () => {
+    // L=0 is advisory — must not drive revise even though full gap would be high.
+    const handler = createBeforeAgentFinalizeHandler(
+      makeRubric({ F: 90, T: 90, A: 90, L: 0 }),
+      3,
+      true,
+    );
+    const result = await handler(baseEvent);
+    expect(result?.action).toBe("continue");
+  });
+
+  it("returns revise when non-advisory dimension fails even if advisory dimension passes", async () => {
+    const handler = createBeforeAgentFinalizeHandler(
+      makeRubric({ F: 40, T: 40, A: 40, L: 100 }),
+      3,
+      true,
+    );
+    const result = await handler(baseEvent);
+    expect(result?.action).toBe("revise");
+  });
+
+  it("reason includes failure hints for weak non-advisory dimensions", async () => {
+    const handler = createBeforeAgentFinalizeHandler(
+      makeRubric({ F: 40, T: 40, A: 40, L: 0 }),
+      3,
+      true,
+    );
+    const result = await handler(baseEvent);
+    expect(result?.reason).toContain("Ground unsupported claims");
+    expect(result?.reason).toContain("Verify guessed API names");
+  });
+
+  it("reason marks L as advisory, not as an action item", async () => {
+    const handler = createBeforeAgentFinalizeHandler(
+      makeRubric({ F: 40, T: 40, A: 40, L: 0 }),
+      3,
+      true,
+    );
+    const result = await handler(baseEvent);
+    expect(result?.reason).toContain("advisory");
+    // L should not appear in the Required improvements section
+    expect(result?.reason).not.toMatch(/Required improvements[\s\S]*L:/);
   });
 
   it("resets revision count after passing", async () => {

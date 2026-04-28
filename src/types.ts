@@ -5,6 +5,12 @@ export type DimensionScores = Record<string, number>;
 export interface RubricDimension {
   readonly key: string;
   readonly weight: number;
+  // advisory: true = reported in scores but excluded from gating gap.
+  // Use for dimensions where a bad score cannot be improved by retrying
+  // (e.g. L/Latency — retrying necessarily makes latency worse).
+  readonly advisory?: boolean;
+  // Human-readable guidance shown in the revise reason when this dimension is weak.
+  readonly failureHint?: string;
 }
 
 export interface Rubric {

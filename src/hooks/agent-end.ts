@@ -53,6 +53,22 @@ export function computeGap(dimensions: Record<string, number>, rubric: Rubric): 
   return Math.max(0, 100 - weightedAvg);
 }
 
+// Gap used for gating decisions (e.g. before_agent_finalize revise).
+// Excludes advisory dimensions — dimensions where a bad score cannot be improved
+// by retrying (e.g. L/Latency: retrying necessarily makes latency worse).
+export function computeGatingGap(dimensions: Record<string, number>, rubric: Rubric): number {
+  let weighted = 0;
+  let totalWeight = 0;
+  for (const dim of rubric.dimensions) {
+    if (dim.advisory) continue;
+    const score = dimensions[dim.key] ?? 0;
+    weighted += score * dim.weight;
+    totalWeight += dim.weight;
+  }
+  const weightedAvg = totalWeight > 0 ? weighted / totalWeight : 0;
+  return Math.max(0, 100 - weightedAvg);
+}
+
 export function createAgentEndHandler(
   rubric: Rubric,
   emitScoringEvent: ScoringEventEmitter,

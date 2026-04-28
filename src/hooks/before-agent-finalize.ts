@@ -1,7 +1,7 @@
 import type { Rubric, ScoringEvent, ScoringRecord, TeachingContext } from "../types.js";
 import { FtalStore } from "../store.js";
 import { storePendingTeaching } from "./before-prompt-build.js";
-import { computeGap } from "./agent-end.js";
+import { computeGap, computeGatingGap } from "./agent-end.js";
 
 type BeforeAgentFinalizeEvent = {
   runId?: string;
@@ -39,8 +39,12 @@ export function createBeforeAgentFinalizeHandler(
     if (!runId) return { action: "continue" };
 
     const dimensions = await rubric.score(event.lastAssistantMessage, { sessionKey, runId });
+
+    // Full gap (all dimensions) for reporting and FtalStore.
     const gap = computeGap(dimensions, rubric);
-    const passed = gap < rubric.gapThreshold;
+    // Gating gap excludes advisory dimensions (e.g. L/Latency) — retrying worsens latency.
+    const gatingGap = computeGatingGap(dimensions, rubric);
+    const passed = gatingGap < rubric.gapThreshold;
 
     const scoringEvent: ScoringEvent = {
       rubric: rubric.id,
@@ -63,35 +67,36 @@ export function createBeforeAgentFinalizeHandler(
     const count = (revisionCounts.get(runId) ?? 0) + 1;
 
     if (count > maxRevisions) {
-      // Exhausted — let it through and clean up.
       revisionCounts.delete(runId);
       return { action: "continue" };
     }
 
     revisionCounts.set(runId, count);
 
-    const dimLines = Object.entries(dimensions)
-      .map(([k, v]) => `  ${k}: ${v.toFixed(0)}/100`)
+    // Build per-dimension lines. Advisory dimensions are shown as telemetry, never as action items.
+    const dimLines = rubric.dimensions.map((dim) => {
+      const score = dimensions[dim.key] ?? 0;
+      const tag = dim.advisory ? " (advisory)" : "";
+      return `  ${dim.key}: ${score.toFixed(0)}/100${tag}`;
+    }).join("\n");
+
+    // Per-weak-dimension failure hints for the revising model.
+    const actionItems = rubric.dimensions
+      .filter((dim) => !dim.advisory && (dimensions[dim.key] ?? 0) < 70 && dim.failureHint)
+      .map((dim) => `  ${dim.key}: ${dim.failureHint}`)
       .join("\n");
 
-    const weakDims = Object.entries(dimensions)
-      .filter(([, v]) => v < 70)
-      .map(([k]) => k)
-      .join(", ");
-
     // reason is what the revising harness sees immediately (Stop hook / Codex relay).
-    // before_prompt_build may not fire between the revision block and the continued pass,
-    // so the actionable teaching must live here — not only in the queued context below.
+    // before_prompt_build may not fire between revision block and continued pass.
     const reason = [
-      `[FTAL revision ${count}/${maxRevisions} — rubric: ${rubric.id}, gap=${gap.toFixed(0)}, threshold=${rubric.gapThreshold}]`,
+      `[FTAL revision ${count}/${maxRevisions} — rubric: ${rubric.id}, gating gap=${gatingGap.toFixed(0)}, threshold=${rubric.gapThreshold}]`,
       `Dimension scores:\n${dimLines}`,
-      weakDims
-        ? `Weak dimensions: ${weakDims}. Please revise your reply to directly address these.`
-        : "All dimensions scored above threshold — recheck faithfulness and factual accuracy.",
+      actionItems
+        ? `Required improvements:\n${actionItems}`
+        : "All gating dimensions scored above threshold — recheck faithfulness and factual accuracy.",
     ].join("\n");
 
-    // Also queue teaching for the next OpenClaw-managed turn (before_prompt_build path).
-    // Belt-and-suspenders: fires when the host manages the retry itself.
+    // Queue teaching for the next OpenClaw-managed turn as well (belt-and-suspenders).
     const teaching: TeachingContext = {
       sessionKey,
       rubric: rubric.id,
