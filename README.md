@@ -23,7 +23,7 @@ The plugin has two operating modes depending on your OpenClaw version:
 | OpenClaw version | Behavior |
 |---|---|
 | Any `>= 2026.4.0` | **v1 path**: scores via `agent_end`, injects teaching context on the next turn via `before_prompt_build`. No retry gating. |
-| `>= commit f3accc753c` (#71765) | **v2 path** (opt-in): scores via `before_agent_finalize`, blocks delivery and requests model revision before the reply reaches the user. |
+| Builds containing `f3accc753c` or newer (#71765), with a finalize-capable runtime/harness | **v2 path** (opt-in): scores via `before_agent_finalize`, blocks delivery and requests model revision before the reply reaches the user. Once `before_agent_finalize` lands in a tagged OpenClaw release, replace this row with the release version. |
 
 If you're on an older build and `retryEnabled: true` is set, scoring and teaching still work — **the retry gating just won't fire**. You won't get errors; the plugin silently falls back to the v1 path. The most common "why doesn't retry fire?" cause is running an OpenClaw build that predates `before_agent_finalize`.
 
